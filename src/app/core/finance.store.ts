@@ -43,6 +43,7 @@ export class FinanceStore {
   }
 
   private async load(): Promise<void> {
+    if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
     if ((await db.cats.count()) === 0) await this.seedFresh();
     await this.reloadAll();
     this.ready.set(true);
@@ -405,5 +406,38 @@ export class FinanceStore {
       await db.prefs.put({ id: 'default', ...next });
       this.prefs.set(next);
     }
+  }
+
+  /** Everything needed to fully restore this device's data elsewhere (or after it gets wiped). */
+  async exportBackup(): Promise<Record<string, unknown>> {
+    const [cats, inCats, accounts, tx, subs, goals, prefsRow] = await Promise.all([
+      db.cats.toArray(),
+      db.inCats.toArray(),
+      db.accounts.toArray(),
+      db.tx.toArray(),
+      db.subs.toArray(),
+      db.goals.toArray(),
+      db.prefs.get('default'),
+    ]);
+    return { version: 1, exportedAt: new Date().toISOString(), cats, inCats, accounts, tx, subs, goals, prefs: prefsRow };
+  }
+
+  /** Replaces everything on this device with the contents of a backup produced by exportBackup(). */
+  async importBackup(data: unknown): Promise<void> {
+    const d = data as Record<string, unknown> | null;
+    if (!d || !Array.isArray(d['cats']) || !Array.isArray(d['tx'])) {
+      throw new Error('El archivo no tiene el formato de un respaldo de Finanzas.');
+    }
+    await db.transaction('rw', [db.cats, db.inCats, db.accounts, db.tx, db.subs, db.goals, db.prefs], async () => {
+      await Promise.all([db.cats.clear(), db.inCats.clear(), db.accounts.clear(), db.tx.clear(), db.subs.clear(), db.goals.clear(), db.prefs.clear()]);
+      await db.cats.bulkAdd((d['cats'] as Category[]) ?? []);
+      await db.inCats.bulkAdd((d['inCats'] as Category[]) ?? []);
+      await db.accounts.bulkAdd((d['accounts'] as Account[]) ?? []);
+      await db.tx.bulkAdd((d['tx'] as Transaction[]) ?? []);
+      await db.subs.bulkAdd((d['subs'] as Subscription[]) ?? []);
+      await db.goals.bulkAdd((d['goals'] as Goal[]) ?? []);
+      await db.prefs.put({ ...SEED_PREFS, ...((d['prefs'] as Partial<Prefs>) ?? {}), id: 'default' });
+    });
+    await this.reloadAll();
   }
 }

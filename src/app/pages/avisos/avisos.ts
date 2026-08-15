@@ -79,8 +79,18 @@ import { NotificationService } from '../../core/notification.service';
       <button class="btn btn-secondary btn-block" (click)="notif.notify('Aviso de prueba', 'Así se ven tus notificaciones.')">Probar notificación</button>
 
       <div>
+        <h4 style="font-size:16px;margin-bottom:8px">Respaldo</h4>
+        <div style="font-size:11.5px;line-height:1.5;color:var(--color-neutral-700);margin-bottom:8px">Todo vive solo en este dispositivo — no hay servidor. Guarda un respaldo de vez en cuando (a Drive, Files, donde quieras) para no depender de que el navegador nunca borre nada.</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" style="flex:1" (click)="exportBackup()">Exportar respaldo</button>
+          <button class="btn btn-secondary" style="flex:1" (click)="fileInput.click()">Importar respaldo</button>
+        </div>
+        <input #fileInput type="file" accept="application/json" style="display:none" (change)="onImportFile($event)" />
+      </div>
+
+      <div>
         <h4 style="font-size:16px;margin-bottom:8px">Datos locales</h4>
-        <div style="font-size:11.5px;line-height:1.5;color:var(--color-neutral-700);margin-bottom:8px">Todo vive solo en este dispositivo. Borrar los datos elimina cuentas, movimientos, metas y suscripciones — no se puede deshacer.</div>
+        <div style="font-size:11.5px;line-height:1.5;color:var(--color-neutral-700);margin-bottom:8px">Borrar los datos elimina cuentas, movimientos, metas y suscripciones de este dispositivo — no se puede deshacer.</div>
         <button class="btn btn-block" style="color:var(--color-bad);border-color:var(--color-bad)" (click)="wipe()">Borrar todos los datos</button>
       </div>
     </div>
@@ -104,5 +114,32 @@ export class Avisos {
   async wipe(): Promise<void> {
     if (!confirm('¿Borrar todos los datos? Esto elimina cuentas, movimientos, metas y suscripciones de este dispositivo y no se puede deshacer.')) return;
     await this.store.wipeAll();
+  }
+
+  async exportBackup(): Promise<void> {
+    const data = await this.store.exportBackup();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'finanzas-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    this.notif.notify('Respaldo exportado', 'Guárdalo en un lugar seguro (Drive, Files, etc.).');
+  }
+
+  async onImportFile(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (!confirm('Importar reemplaza todos los datos actuales de este dispositivo por los del respaldo. ¿Continuar?')) return;
+    try {
+      const text = await file.text();
+      await this.store.importBackup(JSON.parse(text));
+      this.notif.notify('Respaldo importado', 'Tus datos fueron restaurados.');
+    } catch {
+      alert('No se pudo leer ese archivo como respaldo de Finanzas.');
+    }
   }
 }
