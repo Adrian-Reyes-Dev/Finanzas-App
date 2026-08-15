@@ -2,6 +2,7 @@ import { Component, computed, signal } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { FinanceStore } from './core/finance.store';
+import { UpdateService } from './core/update.service';
 import { AccountSheet } from './shared/account-sheet/account-sheet';
 import { AddTxSheet } from './shared/add-tx-sheet/add-tx-sheet';
 import { GoalSheet } from './shared/goal-sheet/goal-sheet';
@@ -31,7 +32,9 @@ export class App {
     public sheet: SheetService,
     private router: Router,
     private route: ActivatedRoute,
+    updates: UpdateService,
   ) {
+    void updates;
     this.store.init().then(() => this.store.checkReminders());
     this.router.events
       .pipe(
