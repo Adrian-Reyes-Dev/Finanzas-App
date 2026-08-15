@@ -3,7 +3,7 @@ import { db } from './db';
 import { fmt } from './format';
 import { Account, Category, DateRange, Goal, GoalKind, Prefs, Subscription, TxType, Transaction } from './models';
 import { NotificationService } from './notification.service';
-import { SEED_ACCOUNTS, SEED_CATS, SEED_GOALS, SEED_IN_CATS, SEED_PREFS, SEED_SUBS, seedTransactions } from './seed';
+import { SEED_ACCOUNTS, SEED_CATS, SEED_GOALS, SEED_IN_CATS, SEED_PREFS, SEED_SUBS } from './seed';
 
 export type Period = 'dia' | 'semana' | 'mes' | 'anio';
 
@@ -43,20 +43,29 @@ export class FinanceStore {
   }
 
   private async load(): Promise<void> {
-    const count = await db.tx.count();
-    if (count === 0 && (await db.cats.count()) === 0) {
-      await db.transaction('rw', [db.cats, db.inCats, db.accounts, db.tx, db.subs, db.goals, db.prefs], async () => {
-        await db.cats.bulkAdd(SEED_CATS);
-        await db.inCats.bulkAdd(SEED_IN_CATS);
-        await db.accounts.bulkAdd(SEED_ACCOUNTS);
-        await db.tx.bulkAdd(seedTransactions());
-        await db.subs.bulkAdd(SEED_SUBS);
-        await db.goals.bulkAdd(SEED_GOALS);
-        await db.prefs.put({ id: 'default', ...SEED_PREFS });
-      });
-    }
+    if ((await db.cats.count()) === 0) await this.seedFresh();
     await this.reloadAll();
     this.ready.set(true);
+  }
+
+  private async seedFresh(): Promise<void> {
+    await db.transaction('rw', [db.cats, db.inCats, db.accounts, db.tx, db.subs, db.goals, db.prefs], async () => {
+      await db.cats.bulkAdd(SEED_CATS);
+      await db.inCats.bulkAdd(SEED_IN_CATS);
+      await db.accounts.bulkAdd(SEED_ACCOUNTS);
+      await db.subs.bulkAdd(SEED_SUBS);
+      await db.goals.bulkAdd(SEED_GOALS);
+      await db.prefs.put({ id: 'default', ...SEED_PREFS });
+    });
+  }
+
+  /** Wipes every local table and starts over with a clean set of default categories — everything else empty. */
+  async wipeAll(): Promise<void> {
+    await db.transaction('rw', [db.cats, db.inCats, db.accounts, db.tx, db.subs, db.goals, db.prefs], async () => {
+      await Promise.all([db.cats.clear(), db.inCats.clear(), db.accounts.clear(), db.tx.clear(), db.subs.clear(), db.goals.clear(), db.prefs.clear()]);
+      await this.seedFresh();
+    });
+    await this.reloadAll();
   }
 
   private async reloadAll(): Promise<void> {
@@ -240,8 +249,13 @@ export class FinanceStore {
     await db.tx.delete(id);
     const acct = await db.accounts.get(t.acctId);
     if (acct) {
-      const sign = t.type === 'ingreso' ? -1 : 1;
+      // Reverse whatever balance effect this transaction had when it was created.
+      const sign = t.type === 'gasto' ? 1 : t.type === 'ingreso' || t.type === 'ajuste' ? -1 : t.type === 'ahorro' ? 1 : 0;
       await db.accounts.put({ ...acct, balance: acct.balance + sign * t.amount });
+    }
+    if (t.type === 'ahorro' && t.bucketId) {
+      const g = await db.goals.get(t.bucketId);
+      if (g) await db.goals.put({ ...g, saved: (g.saved ?? 0) - t.amount });
     }
     await this.reloadAll();
   }
@@ -258,12 +272,41 @@ export class FinanceStore {
   async setAccountBalance(id: string, balance: number): Promise<void> {
     const acct = await db.accounts.get(id);
     if (!acct) return;
+    const delta = balance - acct.balance;
     await db.accounts.put({ ...acct, balance });
+    if (delta !== 0) {
+      await db.tx.add({
+        id: 'u' + Date.now(),
+        type: 'ajuste',
+        catId: null,
+        amount: delta,
+        ts: Date.now(),
+        note: 'Ajuste de saldo · ' + acct.name,
+        acctId: id,
+      });
+    }
     await this.reloadAll();
   }
 
   async addAccount(name: string, balance: number): Promise<void> {
-    await db.accounts.add({ id: 'a' + Date.now(), name, balance });
+    const id = 'a' + Date.now();
+    await db.accounts.add({ id, name, balance });
+    if (balance !== 0) {
+      await db.tx.add({
+        id: 'u' + Date.now(),
+        type: 'ajuste',
+        catId: null,
+        amount: balance,
+        ts: Date.now(),
+        note: 'Saldo inicial · ' + name,
+        acctId: id,
+      });
+    }
+    await this.reloadAll();
+  }
+
+  async deleteAccount(id: string): Promise<void> {
+    await db.accounts.delete(id);
     await this.reloadAll();
   }
 

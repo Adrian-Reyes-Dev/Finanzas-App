@@ -24,6 +24,9 @@ import { SheetService } from '../sheet.service';
               <input class="input" type="text" placeholder="Nombre de la app (ej. Nu, Mercado Pago, efectivo)" [ngModel]="name()" (ngModelChange)="name.set($event)" />
             }
             <input class="input" type="number" inputmode="decimal" placeholder="Saldo" [ngModel]="balance()" (ngModelChange)="balance.set($event)" />
+            @if (s.acctId) {
+              <button class="btn btn-secondary btn-block" style="color:var(--color-bad);border-color:var(--color-bad)" (click)="remove(s.acctId)">Eliminar cuenta</button>
+            }
           </div>
           <div class="sheet-footer">
             <button class="btn btn-primary btn-block" [disabled]="!canSave()" (click)="save(s.acctId)">Guardar</button>
@@ -67,6 +70,14 @@ export class AccountSheet {
       await this.store.addAccount(name, balance);
       this.sheet.say(name + ' agregada.');
     }
+    this.sheet.close();
+  }
+
+  async remove(acctId: string): Promise<void> {
+    const name = this.store.acct(acctId).name;
+    if (!confirm('¿Eliminar «' + name + '»? El historial de movimientos que ya se registró con esta cuenta se conserva.')) return;
+    await this.store.deleteAccount(acctId);
+    this.sheet.say(name + ' eliminada.');
     this.sheet.close();
   }
 }

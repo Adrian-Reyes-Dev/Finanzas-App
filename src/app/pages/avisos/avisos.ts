@@ -77,6 +77,12 @@ import { NotificationService } from '../../core/notification.service';
       </div>
 
       <button class="btn btn-secondary btn-block" (click)="notif.notify('Aviso de prueba', 'Así se ven tus notificaciones.')">Probar notificación</button>
+
+      <div>
+        <h4 style="font-size:16px;margin-bottom:8px">Datos locales</h4>
+        <div style="font-size:11.5px;line-height:1.5;color:var(--color-neutral-700);margin-bottom:8px">Todo vive solo en este dispositivo. Borrar los datos elimina cuentas, movimientos, metas y suscripciones — no se puede deshacer.</div>
+        <button class="btn btn-block" style="color:var(--color-bad);border-color:var(--color-bad)" (click)="wipe()">Borrar todos los datos</button>
+      </div>
     </div>
   `,
 })
@@ -94,4 +100,9 @@ export class Avisos {
     public store: FinanceStore,
     public notif: NotificationService,
   ) {}
+
+  async wipe(): Promise<void> {
+    if (!confirm('¿Borrar todos los datos? Esto elimina cuentas, movimientos, metas y suscripciones de este dispositivo y no se puede deshacer.')) return;
+    await this.store.wipeAll();
+  }
 }

@@ -167,12 +167,16 @@ export class Inicio {
 
   codeFor(m: { type: string; catId: string | null; bucketId?: string | null }): string {
     if (m.type === 'ahorro') return 'AHO';
+    if (m.type === 'ajuste') return 'AJU';
     return m.catId ? this.store.cat(m.catId).code : 'AHO';
   }
   colorFor(m: { type: string }): string {
-    return m.type === 'ingreso' ? 'var(--color-good)' : m.type === 'ahorro' ? 'var(--color-accent-800)' : 'var(--color-text)';
+    return m.type === 'ingreso' ? 'var(--color-good)' : m.type === 'ahorro' ? 'var(--color-accent-800)' : m.type === 'ajuste' ? 'var(--color-neutral-600)' : 'var(--color-text)';
   }
-  signFor(m: { type: string }): string {
-    return m.type === 'ingreso' ? '+' : m.type === 'gasto' ? '-' : '';
+  signFor(m: { type: string; amount: number }): string {
+    if (m.type === 'ingreso') return '+';
+    if (m.type === 'gasto') return '-';
+    if (m.type === 'ajuste') return m.amount >= 0 ? '+' : '';
+    return '';
   }
 }

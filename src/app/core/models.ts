@@ -1,4 +1,4 @@
-export type TxType = 'gasto' | 'ingreso' | 'ahorro';
+export type TxType = 'gasto' | 'ingreso' | 'ahorro' | 'ajuste';
 export type GoalKind = 'ahorro' | 'deuda' | 'limite' | 'diario';
 
 export interface Category {
