@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { FinanceStore } from '../../core/finance.store';
 import { fmt } from '../../core/format';
 import { SheetService } from '../../shared/sheet.service';
@@ -6,6 +7,7 @@ import { SheetService } from '../../shared/sheet.service';
 @Component({
   selector: 'app-ahorro',
   standalone: true,
+  imports: [FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div style="display:flex;flex-direction:column;gap:18px">
@@ -21,11 +23,21 @@ import { SheetService } from '../../shared/sheet.service';
         <div style="height:7px;margin-top:9px;background:var(--color-neutral-200);border:1px solid var(--color-divider)">
           <div style="height:100%;background:var(--color-accent);width:{{ weekSavedPct() }}%"></div>
         </div>
-        <div style="display:flex;gap:6px;margin-top:10px;align-items:center">
-          <span style="flex:1;font-size:11.5px;color:var(--color-neutral-700)">Ajustar meta semanal</span>
-          @for (o of weekOptions; track o) {
-            <button (click)="store.weekGoal.set(o)" style="min-width:52px;min-height:34px;padding:0 8px;border:1px solid {{ store.weekGoal() === o ? 'var(--color-accent)' : 'var(--color-divider)' }};background:{{ store.weekGoal() === o ? 'var(--color-accent)' : 'transparent' }};color:{{ store.weekGoal() === o ? 'var(--color-bg)' : 'var(--color-text)' }};font-family:var(--font-heading);font-weight:600;font-size:11.5px;cursor:pointer">{{ o }}</button>
-          }
+        <div style="margin-top:12px">
+          <div style="font-size:11.5px;color:var(--color-neutral-700);margin-bottom:6px">Meta semanal personalizada</div>
+          <div style="display:flex;gap:6px">
+            <input
+              class="input"
+              type="number"
+              inputmode="decimal"
+              min="1"
+              placeholder="Monto por semana"
+              [ngModel]="weekGoalInput()"
+              (ngModelChange)="weekGoalInput.set($event)"
+              style="flex:1;min-height:40px"
+            />
+            <button class="btn btn-primary" style="min-height:40px" [disabled]="!canSaveWeekGoal()" (click)="saveWeekGoal()">Guardar</button>
+          </div>
         </div>
       </div>
 
@@ -64,18 +76,28 @@ import { SheetService } from '../../shared/sheet.service';
 })
 export class Ahorro {
   fmt = fmt;
-  readonly weekOptions = [800, 1200, 1800, 2500];
+  readonly weekGoalInput = signal('');
 
   readonly buckets = computed(() => this.store.goals().filter((g) => g.kind === 'ahorro' || g.kind === 'deuda'));
   readonly weekSaved = computed(() => this.store.savedIn(this.store.range('semana')));
   readonly weekSavedPct = computed(() => Math.min(100, Math.round((this.weekSaved() / this.store.weekGoal()) * 100)));
+  readonly canSaveWeekGoal = computed(() => parseFloat(this.weekGoalInput() || '0') > 0);
 
   constructor(
     public store: FinanceStore,
     public sheetSvc: SheetService,
-  ) {}
+  ) {
+    this.weekGoalInput.set(String(this.store.weekGoal()));
+  }
 
   pct(b: { target: number; saved?: number }): number {
     return Math.min(100, Math.round(((b.saved ?? 0) / b.target) * 100));
+  }
+
+  async saveWeekGoal(): Promise<void> {
+    const amount = parseFloat(this.weekGoalInput());
+    if (!amount || amount <= 0) return;
+    await this.store.setWeekGoal(amount);
+    this.sheetSvc.say('Meta semanal ajustada a ' + this.fmt(amount) + '.');
   }
 }

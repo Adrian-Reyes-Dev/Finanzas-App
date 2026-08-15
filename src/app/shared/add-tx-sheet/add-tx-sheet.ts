@@ -60,7 +60,17 @@ import { SheetService } from '../sheet.service';
                       <span class="tile-name">{{ c.name }}</span>
                     </button>
                   }
+                  <button class="tile" [class.selected]="addingCat()" (click)="addingCat.set(!addingCat())">
+                    <span class="tile-code">+</span>
+                    <span class="tile-name">Nueva</span>
+                  </button>
                 </div>
+                @if (addingCat()) {
+                  <div style="display:flex;gap:7px;margin-top:8px">
+                    <input class="input" type="text" placeholder="Nombre de la categoría" [ngModel]="newCatName()" (ngModelChange)="newCatName.set($event)" style="flex:1" />
+                    <button class="btn btn-primary" [disabled]="!newCatName().trim()" (click)="createCategory()">Crear</button>
+                  </div>
+                }
               </div>
               <input class="input" type="text" placeholder="Nota (opcional)" [ngModel]="note()" (ngModelChange)="note.set($event)" />
             }
@@ -95,6 +105,8 @@ export class AddTxSheet {
   readonly bucketId = signal<string | null>(null);
   readonly acctId = signal<string | null>(null);
   readonly note = signal('');
+  readonly addingCat = signal(false);
+  readonly newCatName = signal('');
 
   readonly state = computed(() => {
     const s = this.sheet.open();
@@ -133,8 +145,21 @@ export class AddTxSheet {
         this.note.set('');
         this.acctId.set(this.store.accounts()[0]?.id ?? null);
         this.bucketId.set(s.bucketId ?? null);
+        this.addingCat.set(false);
+        this.newCatName.set('');
       }
     });
+  }
+
+  async createCategory(): Promise<void> {
+    const name = this.newCatName().trim();
+    if (!name) return;
+    const kind = this.state()?.mode === 'ingreso' ? 'ingreso' : 'gasto';
+    const cat = await this.store.addCategory(name, kind);
+    this.catId.set(cat.id);
+    this.addingCat.set(false);
+    this.newCatName.set('');
+    this.sheet.say('Categoría «' + name + '» creada.');
   }
 
   fmt(n: number): string {

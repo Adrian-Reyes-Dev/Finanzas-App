@@ -44,7 +44,7 @@ export const SEED_GOALS: Goal[] = [
   { id: 'l3', kind: 'diario', name: 'Tope del día', target: 600 },
 ];
 
-export const SEED_PREFS: Prefs = { subs: true, alto: true, diario: true, notified: {} };
+export const SEED_PREFS: Prefs = { subs: true, alto: true, diario: true, weekGoal: 1200, notified: {} };
 
 /** Small handful of starter transactions so the app isn't empty on first run. */
 export function seedTransactions(): Transaction[] {

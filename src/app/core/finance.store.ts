@@ -25,7 +25,7 @@ export class FinanceStore {
   readonly ready = signal(false);
 
   readonly period = signal<Period>('mes');
-  readonly weekGoal = signal(1200);
+  readonly weekGoal = computed(() => this.prefs().weekGoal);
 
   readonly available = computed(() => this.accounts().reduce((a, x) => a + x.balance, 0));
   readonly savedAll = computed(() =>
@@ -75,7 +75,7 @@ export class FinanceStore {
     this.tx.set(tx);
     this.subs.set(subs);
     this.goals.set(goals);
-    if (prefsRow) this.prefs.set(prefsRow);
+    if (prefsRow) this.prefs.set({ ...SEED_PREFS, ...prefsRow });
   }
 
   /* ── date ranges ── */
@@ -246,11 +246,11 @@ export class FinanceStore {
     await this.reloadAll();
   }
 
-  async addCategory(name: string): Promise<Category> {
+  async addCategory(name: string, kind: 'gasto' | 'ingreso' = 'gasto'): Promise<Category> {
     const id = 'c' + Date.now();
     const code = (name.replace(/[^a-záéíóúñ]/gi, '').slice(0, 3).toUpperCase() || 'NVA');
     const cat: Category = { id, code, name };
-    await db.cats.add(cat);
+    await (kind === 'ingreso' ? db.inCats : db.cats).add(cat);
     await this.reloadAll();
     return cat;
   }
@@ -311,6 +311,13 @@ export class FinanceStore {
     if (!sub) return;
     await db.subs.put({ ...sub, remind });
     await this.reloadAll();
+  }
+
+  async setWeekGoal(amount: number): Promise<void> {
+    if (!amount || amount <= 0) return;
+    const next = { ...this.prefs(), weekGoal: Math.round(amount) };
+    await db.prefs.put({ id: 'default', ...next });
+    this.prefs.set(next);
   }
 
   async togglePref(key: 'subs' | 'alto' | 'diario'): Promise<void> {

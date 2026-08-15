@@ -50,6 +50,7 @@ export interface Prefs {
   subs: boolean;
   alto: boolean;
   diario: boolean;
+  weekGoal: number;
   /** subId/'alto'/'diario' -> ISO date string of the last day a notification was already sent, so we don't repeat it. */
   notified: Record<string, string>;
 }
