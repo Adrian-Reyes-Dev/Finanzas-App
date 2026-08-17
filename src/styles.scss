@@ -44,6 +44,56 @@
   color-scheme: light;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #14171b;
+    --color-surface: #1b1f24;
+    --color-text: #eceef0;
+    --color-accent: #89b0d6;
+    --color-divider: rgba(255, 255, 255, 0.14);
+
+    --color-neutral-100: #eceef0;
+    --color-neutral-200: #21262c;
+    --color-neutral-300: #262b31;
+    --color-neutral-400: #363c43;
+    --color-neutral-500: #6b7278;
+    --color-neutral-600: #9aa1a8;
+    --color-neutral-700: #b6bcc2;
+    --color-neutral-800: #d2d6da;
+    --color-neutral-900: #eceef0;
+
+    --color-accent-100: #22384a;
+    --color-accent-200: #2a4258;
+    --color-accent-300: #355166;
+    --color-accent-400: #4a6d8c;
+    --color-accent-500: #6089ac;
+    --color-accent-600: #7096bd;
+    --color-accent-700: #a9c6e2;
+    --color-accent-800: #bcd6ee;
+    /* deliberately darker than 700/800: this step plays a chip-background role (.toast), not text */
+    --color-accent-900: #24384a;
+
+    --color-good: #7ab595;
+    --color-bad: #d6897a;
+
+    color-scheme: dark;
+  }
+
+  /* accent-100 became a dark tint and accent-900 stayed dark for the toast bg, so the
+     tile-selected text needs its own light value instead of reusing accent-900 */
+  .tile.selected {
+    color: var(--color-accent-800);
+  }
+
+  .blueprint > .corner {
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -60,6 +110,7 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+  touch-action: manipulation;
 }
 
 h1,
